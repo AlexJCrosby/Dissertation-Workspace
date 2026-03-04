@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 
 import tensorflow as tf
 
-# Import your preprocessing function (make sure audio_preprocessing.py is in the same folder)
+# Import preprocessing function
 from audio_preprocessing import preprocess_file_to_logmel, DATASET_PATH
 
 
@@ -12,10 +12,9 @@ from audio_preprocessing import preprocess_file_to_logmel, DATASET_PATH
 # Config
 # ----------------------------
 BATCH_SIZE = 32
-SHUFFLE_BUFFER = 4000  # adjust if you like
+SHUFFLE_BUFFER = 4000 
 AUTOTUNE = tf.data.AUTOTUNE
 
-# Speech Commands usually provides these official split files in the dataset root
 VALIDATION_LIST = "validation_list.txt"
 TESTING_LIST = "testing_list.txt"
 
@@ -56,7 +55,6 @@ def read_split_file(dataset_path: str, filename: str) -> List[str]:
         return []
 
     lines = split_path.read_text(encoding="utf-8").splitlines()
-    # Make absolute paths
     abs_paths = [str(Path(dataset_path) / line.strip()) for line in lines if line.strip()]
     return abs_paths
 
@@ -71,7 +69,6 @@ def build_official_splits(dataset_path: str) -> Tuple[List[str], List[str], List
     val_wavs = set(read_split_file(dataset_path, VALIDATION_LIST))
     test_wavs = set(read_split_file(dataset_path, TESTING_LIST))
 
-    # Keep only those that actually exist in the folder (robustness)
     val_wavs = val_wavs.intersection(all_wavs)
     test_wavs = test_wavs.intersection(all_wavs)
 
@@ -167,7 +164,7 @@ def make_dataset(
 def build_datasets(dataset_path: str = DATASET_PATH):
     train_files, val_files, test_files = build_official_splits(dataset_path)
 
-    # Build label vocab from TRAIN (common practice). If you prefer all labels, use train+val+test.
+    # Build label vocab from TRAIN (common practice).
     label_vocab = build_label_vocab(train_files)
     label_table = make_label_lookup(label_vocab)
 
