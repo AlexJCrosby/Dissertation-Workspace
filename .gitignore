@@ -16,3 +16,6 @@ Thumbs.db
 
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints/
+
+
+.GPUTest.py
