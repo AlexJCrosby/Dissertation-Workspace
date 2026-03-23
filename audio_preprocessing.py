@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 # ----------------------------
 DATASET_PATH = "/mnt/c/Users/Alex/OneDrive/Desktop/Year 3/0 - Dissertation/Datasets/Google Speech Commands"
 
-
 TARGET_SAMPLE_RATE = 16000
 CLIP_DURATION_S = 1
 DESIRED_SAMPLES = TARGET_SAMPLE_RATE * CLIP_DURATION_S
