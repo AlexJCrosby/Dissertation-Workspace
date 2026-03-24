@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import cast
+from datetime import datetime
+
+import re
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -13,6 +16,25 @@ import tensorflow as tf
 
 from dataset_pipeline import build_datasets, DATASET_PATH
 from transfer_model import TransferConfig, build_transfer_model
+
+def get_next_run_dir(base_dir: Path) -> Path:
+    """
+    Create the next numbered run directory, e.g.:
+    run_001, run_002, run_003, ...
+    """
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    existing = []
+    for p in base_dir.iterdir():
+        if p.is_dir():
+            match = re.match(r"run_(\d+)", p.name)
+            if match:
+                existing.append(int(match.group(1)))
+
+    next_num = max(existing, default=0) + 1
+    run_dir = base_dir / f"run_{next_num:03d}"
+    run_dir.mkdir(parents=True, exist_ok=False)
+    return run_dir
 
 
 
@@ -41,8 +63,8 @@ def main():
         image_size=224,
         dropout_rate=0.30,
         dense_units=128,
-        learning_rate=1e-3,
-        backbone_trainable=False,   # stage 1: frozen backbone
+        learning_rate=1e-5,
+        backbone_trainable=True,   # stage 1: frozen backbone
     )
 
     model = build_transfer_model(cfg)
@@ -52,13 +74,25 @@ def main():
     # 3) Output directories
     # ----------------------------
     out_dir = Path("outputs")
-    model_dir = out_dir / "models"
-    out_dir.mkdir(exist_ok=True)
-    model_dir.mkdir(parents=True, exist_ok=True)
+    runs_dir = out_dir / "transfer_runs"
+    run_dir = get_next_run_dir(runs_dir)
 
-    best_model_path = model_dir / "transfer_mobilenetv2_best.keras"
-    final_model_path = model_dir / "transfer_mobilenetv2_final.keras"
-    log_path = out_dir / "transfer_training_log.csv"
+    best_model_path = run_dir / "transfer_mobilenetv2_best.keras"
+    final_model_path = run_dir / "transfer_mobilenetv2_final.keras"
+    log_path = run_dir / "transfer_training_log.csv"
+
+    print("Run directory:", run_dir)
+
+    # SAVE RUN CONFIG
+    (run_dir / "run_notes.txt").write_text(
+        f"run_time={datetime.now()}\n"
+        f"image_size={cfg.image_size}\n"
+        f"dropout_rate={cfg.dropout_rate}\n"
+        f"dense_units={cfg.dense_units}\n"
+        f"learning_rate={cfg.learning_rate}\n"
+        f"backbone_trainable={cfg.backbone_trainable}\n",
+        encoding="utf-8",
+    )   
 
     # ----------------------------
     # 4) Callbacks
