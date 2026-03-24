@@ -8,7 +8,6 @@ import tensorflow as tf
 from dataset_pipeline import build_datasets, DATASET_PATH
 from baseline_model import BaselineConfig, build_baseline_cnn
 
-
 def main():
     # Build datasets
     train_ds, val_ds, test_ds, info = build_datasets(DATASET_PATH)

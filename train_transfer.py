@@ -3,13 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+import warnings
+warnings.filterwarnings("ignore")
+
 import tensorflow as tf
 
 from dataset_pipeline import build_datasets, DATASET_PATH
 from transfer_model import TransferConfig, build_transfer_model
 
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 
 def main():
     # ----------------------------
@@ -85,7 +90,7 @@ def main():
     history = model.fit(
         train_ds,
         validation_data=val_ds,
-        epochs=1,
+        epochs=20,
         callbacks=callbacks,
     )
 
