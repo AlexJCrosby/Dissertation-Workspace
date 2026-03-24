@@ -20,7 +20,7 @@ def main():
     # ----------------------------
     # 1) Build datasets
     # ----------------------------
-    train_ds, val_ds, test_ds, info = build_datasets(DATASET_PATH)
+    train_ds, val_ds, test_ds, info = build_datasets(str(DATASET_PATH))
 
     # Infer input shape from one batch
     example_batch = next(iter(train_ds))

@@ -10,7 +10,7 @@ from baseline_model import BaselineConfig, build_baseline_cnn
 
 def main():
     # Build datasets
-    train_ds, val_ds, test_ds, info = build_datasets(DATASET_PATH)
+    train_ds, val_ds, test_ds, info = build_datasets(str(DATASET_PATH))
 
     # Infer input shape from a single batch (robust)
     example_batch = next(iter(train_ds))
@@ -71,9 +71,14 @@ def main():
 
     # Evaluate
     print("\n--- Final Evaluation (Test Set) ---")
-    test_loss, test_acc = model.evaluate(test_ds, verbose=2)
-    print(f"Test accuracy: {test_acc:.4f}")
+    results = model.evaluate(test_ds, verbose=2, return_dict=True)
 
+    test_loss = results["loss"]
+    test_acc = results["accuracy"]
+
+    print(f"Test loss: {test_loss:.4f}")
+    print(f"Test accuracy: {test_acc:.4f}")
+    
     # Save final model after training finishes
     final_path = model_dir / "baseline_cnn_final.keras"
     model.save(str(final_path))
