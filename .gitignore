@@ -4,6 +4,8 @@ venv/
 
 .venv-wsl
 
+outputs
+
 # Python cache
 __pycache__/
 *.pyc
