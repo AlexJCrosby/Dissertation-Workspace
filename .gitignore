@@ -24,6 +24,7 @@ Thumbs.db
 # Testing Files
 GPUTest.py
 test.wav
+whisper_test.py
 
 # Temporary Files
 temp_gui_recording.wav
