@@ -29,7 +29,7 @@ DEFAULT_LABELS = [
 
 
 # The dissertation model was trained on a 30-class subset.
-# We keep the 30-class fallback here so microphone inference can run locally
+# 30-class fallback is used here so microphone inference can run locally
 # even when the Docker-only /data mount is unavailable.
 DEFAULT_30_CLASS_LABELS = sorted([
     "bed", "bird", "cat", "dog", "down", "eight", "five", "four", "go", "happy",
@@ -199,8 +199,7 @@ def main() -> None:
 
     input_shape = infer_input_shape()
 
-    # Your trained model currently uses 30 classes.
-    # If you later swap models, update this or point --dataset-path to a matching dataset.
+    # The trained model currently uses 30 classes.
     num_classes = 30
     class_names = get_class_names(args.dataset_path, num_classes=num_classes)
 
