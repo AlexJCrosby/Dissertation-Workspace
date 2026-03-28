@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, asdict
+from pathlib import Path
+import json
 from enum import Enum
 from typing import Optional
 
@@ -32,15 +34,18 @@ class ParsedCommand:
 
 
 class TaskManager:
-    def __init__(self) -> None:
+    def __init__(self, storage_path: str | Path = "tasks.json") -> None:
+        self.storage_path = Path(storage_path)
         self.tasks: list[Task] = []
         self.next_id: int = 1
+        self.load_tasks()
 
     def add_task(self, text: str) -> Task:
         text = self._clean_task_text(text)
         task = Task(id=self.next_id, text=text, completed=False)
         self.tasks.append(task)
         self.next_id += 1
+        self.save_tasks()
         return task
 
     def complete_task(self, query: str) -> Optional[Task]:
@@ -48,6 +53,7 @@ class TaskManager:
         if task is None:
             return None
         task.completed = True
+        self.save_tasks()
         return task
 
     def delete_task(self, query: str) -> Optional[Task]:
@@ -55,10 +61,46 @@ class TaskManager:
         if task is None:
             return None
         self.tasks.remove(task)
+        self.save_tasks()
         return task
 
     def list_tasks(self) -> list[Task]:
         return self.tasks
+
+    def save_tasks(self) -> None:
+        payload = {
+            "next_id": self.next_id,
+            "tasks": [asdict(task) for task in self.tasks],
+        }
+        self.storage_path.write_text(
+            json.dumps(payload, indent=2),
+            encoding="utf-8",
+        )
+
+    def load_tasks(self) -> None:
+        if not self.storage_path.exists():
+            self.tasks = []
+            self.next_id = 1
+            self.save_tasks()
+            return
+
+        try:
+            payload = json.loads(self.storage_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            self.tasks = []
+            self.next_id = 1
+            self.save_tasks()
+            return
+
+        raw_tasks = payload.get("tasks", [])
+        self.tasks = [Task(**item) for item in raw_tasks]
+
+        saved_next_id = payload.get("next_id")
+        if isinstance(saved_next_id, int) and saved_next_id > 0:
+            self.next_id = saved_next_id
+        else:
+            highest_id = max((task.id for task in self.tasks), default=0)
+            self.next_id = highest_id + 1
 
     def _find_task(self, query: str) -> Optional[Task]:
         cleaned = self._clean_task_text(query)
@@ -247,9 +289,10 @@ def handle_command(command: ParsedCommand, task_manager: TaskManager) -> None:
 
 
 def main() -> None:
-    task_manager = TaskManager()
+    task_manager = TaskManager(storage_path="tasks.json")
 
     print("Voice Task Assistant")
+    print(f"Task storage: {task_manager.storage_path.resolve()}")
     print("Press Enter to record a command, or type 'q' to quit.")
     print_help()
 
