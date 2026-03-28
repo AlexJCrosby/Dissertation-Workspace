@@ -30,3 +30,4 @@ whisper_test.py
 temp_gui_recording.wav
 
 __init__.py
+tasks.json
