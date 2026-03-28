@@ -28,3 +28,5 @@ whisper_test.py
 
 # Temporary Files
 temp_gui_recording.wav
+
+__init__.py
