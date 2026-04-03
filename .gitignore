@@ -25,9 +25,15 @@ Thumbs.db
 GPUTest.py
 test.wav
 whisper_test.py
+vosk_test.py
 
 # Temporary Files
 temp_gui_recording.wav
+mic_debug.py
 
 __init__.py
 tasks.json
+
+# vosk ASR files
+models/vosk
+
