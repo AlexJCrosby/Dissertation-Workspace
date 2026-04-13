@@ -27,11 +27,11 @@ def _read_wav_pcm_bytes(wav_path: str | Path) -> bytes:
         frame_rate = wf.getframerate()
         num_frames = wf.getnframes()
 
-        print("DEBUG WAV INFO")
-        print("channels:", channels)
-        print("sample_width:", sample_width)
-        print("frame_rate:", frame_rate)
-        print("num_frames:", num_frames)
+        # print("DEBUG WAV INFO")
+        # print("channels:", channels)
+        # print("sample_width:", sample_width)
+        # print("frame_rate:", frame_rate)
+        # print("num_frames:", num_frames)
 
         if channels != 1:
             raise ValueError(f"Expected mono WAV, got {channels} channels")
