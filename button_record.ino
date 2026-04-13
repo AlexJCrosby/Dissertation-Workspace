@@ -61,35 +61,86 @@ void stopRecording() {
   Serial.print("Captured samples: ");
   Serial.println(sampleCount);
 
-  Serial.print("Peak amplitude: ");
-  Serial.println(maxAmplitude);
-
-  if (sampleCount > 0) {
-    Serial.println("AUDIO_READY_TO_SEND");
-  } else {
+  if (sampleCount == 0) {
     Serial.println("NO_AUDIO_CAPTURED");
+    return;
   }
+
+  long long sum = 0;
+  int16_t minSample = 32767;
+  int16_t maxSample = -32768;
+  size_t zeroCount = 0;
+
+  for (size_t i = 0; i < sampleCount; i++) {
+    int16_t s = audioBuffer[i];
+    sum += s;
+
+    if (s == 0) zeroCount++;
+    if (s < minSample) minSample = s;
+    if (s > maxSample) maxSample = s;
+  }
+
+  float mean = (float)sum / sampleCount;
+
+  long long sumAbsFromMean = 0;
+  int peakFromMean = 0;
+
+  for (size_t i = 0; i < sampleCount; i++) {
+    int centred = (int)audioBuffer[i] - (int)mean;
+    int absCentred = abs(centred);
+
+    sumAbsFromMean += absCentred;
+    if (absCentred > peakFromMean) {
+      peakFromMean = absCentred;
+    }
+  }
+
+  float avgAbsFromMean = (float)sumAbsFromMean / sampleCount;
+
+  Serial.print("Mean sample value: ");
+  Serial.println(mean, 2);
+
+  Serial.print("Zero samples: ");
+  Serial.println(zeroCount);
+
+  Serial.print("Min sample: ");
+  Serial.println(minSample);
+
+  Serial.print("Max sample: ");
+  Serial.println(maxSample);
+
+  Serial.print("Peak deviation from mean: ");
+  Serial.println(peakFromMean);
+
+  Serial.print("Average abs deviation from mean: ");
+  Serial.println(avgAbsFromMean, 2);
+
+  Serial.println("First 10 samples:");
+  for (size_t i = 0; i < 10 && i < sampleCount; i++) {
+    Serial.println(audioBuffer[i]);
+  }
+
+  Serial.println("AUDIO_READY_TO_SEND");
 }
 
 void captureAudioSample() {
   if (!isRecording) return;
   if (sampleCount >= MAX_SAMPLES) return;
 
-  int sample = I2S.read();
+  // Read a small block at a time
+  static int16_t tempBuffer[256];
 
-  if (sample == 0 || sample == -1 || sample == 1) {
-    return;
-  }
+  size_t bytesRead = I2S.readBytes((char*)tempBuffer, sizeof(tempBuffer));
+  size_t samplesRead = bytesRead / sizeof(int16_t);
 
-  if (sample > 32767) sample = 32767;
-  if (sample < -32768) sample = -32768;
+  for (size_t i = 0; i < samplesRead && sampleCount < MAX_SAMPLES; i++) {
+    int16_t s = tempBuffer[i];
+    audioBuffer[sampleCount++] = s;
 
-  int16_t s = (int16_t)sample;
-  audioBuffer[sampleCount++] = s;
-
-  int absValue = abs((int)s);
-  if (absValue > maxAmplitude) {
-    maxAmplitude = absValue;
+    int absValue = abs((int)s);
+    if (absValue > maxAmplitude) {
+      maxAmplitude = absValue;
+    }
   }
 }
 
