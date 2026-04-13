@@ -17,6 +17,7 @@ const unsigned long RECORDING_DURATION_MS = 3000;
 
 const uint32_t SAMPLE_RATE = 16000;
 const uint8_t SAMPLE_BITS = 16;
+const uint16_t NUM_CHANNELS = 1;
 
 const int MIC_CLK_PIN = 42;
 const int MIC_DATA_PIN = 41;
@@ -25,7 +26,6 @@ const size_t MAX_SAMPLES = (SAMPLE_RATE * RECORDING_DURATION_MS) / 1000;
 
 int16_t *audioBuffer = nullptr;
 size_t sampleCount = 0;
-int maxAmplitude = 0;
 
 bool initMicrophone() {
   I2S.setPinsPdmRx(MIC_CLK_PIN, MIC_DATA_PIN);
@@ -38,6 +38,49 @@ bool initMicrophone() {
   return true;
 }
 
+void writeWavHeader(Stream &out, uint32_t dataSize) {
+  const uint32_t byteRate = SAMPLE_RATE * NUM_CHANNELS * (SAMPLE_BITS / 8);
+  const uint16_t blockAlign = NUM_CHANNELS * (SAMPLE_BITS / 8);
+  const uint32_t chunkSize = 36 + dataSize;
+
+  out.write((const uint8_t *)"RIFF", 4);
+  out.write((uint8_t *)&chunkSize, 4);
+  out.write((const uint8_t *)"WAVE", 4);
+
+  out.write((const uint8_t *)"fmt ", 4);
+  uint32_t subchunk1Size = 16;
+  uint16_t audioFormat = 1;  // PCM
+  out.write((uint8_t *)&subchunk1Size, 4);
+  out.write((uint8_t *)&audioFormat, 2);
+  out.write((uint8_t *)&NUM_CHANNELS, 2);
+  out.write((uint8_t *)&SAMPLE_RATE, 4);
+  out.write((uint8_t *)&byteRate, 4);
+  out.write((uint8_t *)&blockAlign, 2);
+  out.write((uint8_t *)&SAMPLE_BITS, 2);
+
+  out.write((const uint8_t *)"data", 4);
+  out.write((uint8_t *)&dataSize, 4);
+}
+
+void sendWavOverSerial() {
+  if (sampleCount == 0) {
+    Serial.println("NO_AUDIO_TO_SEND");
+    return;
+  }
+
+  const uint32_t dataSize = sampleCount * sizeof(int16_t);
+
+  Serial.println("WAV_BEGIN");
+  delay(100);
+
+  writeWavHeader(Serial, dataSize);
+  Serial.write((uint8_t *)audioBuffer, dataSize);
+
+  delay(100);
+  Serial.println();
+  Serial.println("WAV_END");
+}
+
 void startRecording() {
   if (audioBuffer == nullptr) {
     Serial.println("Audio buffer not allocated");
@@ -47,7 +90,6 @@ void startRecording() {
   isRecording = true;
   recordingStartTime = millis();
   sampleCount = 0;
-  maxAmplitude = 0;
 
   digitalWrite(LED_PIN, HIGH);
   Serial.println("RECORDING_START");
@@ -121,26 +163,22 @@ void stopRecording() {
   }
 
   Serial.println("AUDIO_READY_TO_SEND");
+
+  // Temporary validation path
+  sendWavOverSerial();
 }
 
 void captureAudioSample() {
   if (!isRecording) return;
   if (sampleCount >= MAX_SAMPLES) return;
 
-  // Read a small block at a time
   static int16_t tempBuffer[256];
 
-  size_t bytesRead = I2S.readBytes((char*)tempBuffer, sizeof(tempBuffer));
+  size_t bytesRead = I2S.readBytes((char *)tempBuffer, sizeof(tempBuffer));
   size_t samplesRead = bytesRead / sizeof(int16_t);
 
   for (size_t i = 0; i < samplesRead && sampleCount < MAX_SAMPLES; i++) {
-    int16_t s = tempBuffer[i];
-    audioBuffer[sampleCount++] = s;
-
-    int absValue = abs((int)s);
-    if (absValue > maxAmplitude) {
-      maxAmplitude = absValue;
-    }
+    audioBuffer[sampleCount++] = tempBuffer[i];
   }
 }
 
