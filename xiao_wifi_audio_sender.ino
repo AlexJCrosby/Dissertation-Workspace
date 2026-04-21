@@ -1,5 +1,7 @@
 #include <WiFi.h>
 #include <ESP_I2S.h>
+#include <U8x8lib.h>
+#include <Wire.h>
 
 // =============================
 // Wi-Fi config
@@ -8,7 +10,7 @@ const char *WIFI_SSID = "HomeWiFi_2G";
 const char *WIFI_PASS = "tyycc9296j";
 
 // Companion device IP address on the same network.
-const char *SERVER_HOST = "192.168.1.140";
+const char *SERVER_HOST = "192.168.1.141";
 const uint16_t SERVER_PORT = 5001;
 
 const char *DEVICE_ID = "xiao-esp32s3";
@@ -18,8 +20,8 @@ const char *DEVICE_ID = "xiao-esp32s3";
 // =============================
 I2SClass I2S;
 WiFiClient client;
+U8X8_SSD1306_128X64_NONAME_HW_I2C oled(U8X8_PIN_NONE);
 
-const int LED_PIN = D2;
 const int BUTTON_PIN = D1;
 
 const int MIC_CLK_PIN = 42;
@@ -43,21 +45,49 @@ int16_t *audioBuffer = nullptr;
 size_t sampleCount = 0;
 uint32_t recordingSequence = 1;
 
+void showStatus(const String &line1, const String &line2 = "", const String &line3 = "") {
+  oled.clearDisplay();
+  oled.setCursor(0, 0);
+  oled.print("WiFi Audio Send");
+
+  oled.setCursor(0, 2);
+  oled.print(line1.c_str());
+
+  if (line2.length() > 0) {
+    oled.setCursor(0, 4);
+    oled.print(line2.c_str());
+  }
+
+  if (line3.length() > 0) {
+    oled.setCursor(0, 6);
+    oled.print(line3.c_str());
+  }
+}
+
+void initDisplay() {
+  Wire.begin();
+  oled.begin();
+  oled.setFlipMode(1);
+  oled.setFont(u8x8_font_chroma48medium8_r);
+  showStatus("Booting...");
+}
 
 bool initMicrophone() {
   I2S.setPinsPdmRx(MIC_CLK_PIN, MIC_DATA_PIN);
 
   if (!I2S.begin(I2S_MODE_PDM_RX, SAMPLE_RATE, I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO)) {
     Serial.println("Failed to initialize I2S microphone");
+    showStatus("Mic init failed");
     return false;
   }
 
   return true;
 }
 
-
 void connectToWiFi() {
   Serial.print("Connecting to Wi-Fi");
+  showStatus("Connecting WiFi", WIFI_SSID);
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
@@ -70,8 +100,9 @@ void connectToWiFi() {
   Serial.println("Wi-Fi connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-}
 
+  showStatus("WiFi connected", WiFi.localIP().toString());
+}
 
 void appendWavHeader(uint8_t *header, uint32_t dataSize) {
   const uint32_t byteRate = SAMPLE_RATE * NUM_CHANNELS * (SAMPLE_BITS / 8);
@@ -97,10 +128,10 @@ void appendWavHeader(uint8_t *header, uint32_t dataSize) {
   memcpy(header + 40, &dataSize, 4);
 }
 
-
 bool sendAudioOverWiFi() {
   if (sampleCount == 0) {
     Serial.println("NO_AUDIO_TO_SEND");
+    showStatus("No audio", "Nothing sent");
     return false;
   }
 
@@ -111,9 +142,11 @@ bool sendAudioOverWiFi() {
   Serial.print(SERVER_HOST);
   Serial.print(":");
   Serial.println(SERVER_PORT);
+  showStatus("Sending audio...", SERVER_HOST, String("Seq ") + recordingSequence);
 
   if (!client.connect(SERVER_HOST, SERVER_PORT)) {
     Serial.println("Failed to connect to Wi-Fi receiver");
+    showStatus("Send failed", "No receiver");
     return false;
   }
 
@@ -146,6 +179,7 @@ bool sendAudioOverWiFi() {
     if (written != chunkBytes) {
       Serial.println("Partial/failed audio write over Wi-Fi");
       client.stop();
+      showStatus("Send failed", "Partial write");
       return false;
     }
 
@@ -154,6 +188,7 @@ bool sendAudioOverWiFi() {
 
   client.flush();
   Serial.println("Audio upload sent. Waiting for receiver response...");
+  showStatus("Awaiting ack...");
 
   unsigned long waitStart = millis();
   while (!client.available() && (millis() - waitStart) < 5000) {
@@ -164,8 +199,10 @@ bool sendAudioOverWiFi() {
     String response = client.readStringUntil('\n');
     Serial.print("Receiver response: ");
     Serial.println(response);
+    showStatus("Transfer done", "Ack received");
   } else {
     Serial.println("No acknowledgment received from receiver");
+    showStatus("Transfer done", "No ack");
   }
 
   client.stop();
@@ -173,10 +210,10 @@ bool sendAudioOverWiFi() {
   return true;
 }
 
-
 void startRecording() {
   if (audioBuffer == nullptr) {
     Serial.println("Audio buffer not allocated");
+    showStatus("Buffer error");
     return;
   }
 
@@ -184,32 +221,35 @@ void startRecording() {
   recordingStartTime = millis();
   sampleCount = 0;
 
-  digitalWrite(LED_PIN, HIGH);
   Serial.println("RECORDING_START");
+  showStatus("Recording...", "Speak now");
 }
-
 
 void stopRecording() {
   isRecording = false;
-  digitalWrite(LED_PIN, LOW);
 
   Serial.println("RECORDING_STOP");
   Serial.print("Captured samples: ");
   Serial.println(sampleCount);
+  showStatus("Recording done", String(sampleCount) + " samples");
 
   if (sampleCount == 0) {
     Serial.println("NO_AUDIO_CAPTURED");
+    showStatus("No audio captured");
     return;
   }
 
   bool ok = sendAudioOverWiFi();
   if (ok) {
     Serial.println("AUDIO_TRANSFER_COMPLETE");
+    delay(1200);
+    showStatus("Ready", "Press D1");
   } else {
     Serial.println("AUDIO_TRANSFER_FAILED");
+    delay(1200);
+    showStatus("Ready", "Retry D1");
   }
 }
-
 
 void captureAudioSample() {
   if (!isRecording) return;
@@ -225,14 +265,13 @@ void captureAudioSample() {
   }
 }
 
-
 void setup() {
-  pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  digitalWrite(LED_PIN, LOW);
 
   Serial.begin(115200);
   delay(500);
+
+  initDisplay();
 
   if (psramFound()) {
     audioBuffer = (int16_t *)ps_malloc(MAX_SAMPLES * sizeof(int16_t));
@@ -242,6 +281,7 @@ void setup() {
 
   if (audioBuffer == nullptr) {
     Serial.println("Failed to allocate audio buffer");
+    showStatus("Buffer alloc fail");
     while (true) delay(1000);
   }
 
@@ -251,8 +291,8 @@ void setup() {
 
   connectToWiFi();
   Serial.println("DEVICE_READY");
+  showStatus("Ready", "Press D1");
 }
-
 
 void loop() {
   int reading = digitalRead(BUTTON_PIN);
