@@ -34,7 +34,7 @@ const unsigned long debounceDelay = 30;
 
 bool isRecording = false;
 unsigned long recordingStartTime = 0;
-const unsigned long RECORDING_DURATION_MS = 3000;
+const unsigned long RECORDING_DURATION_MS = 5000;
 
 const uint32_t SAMPLE_RATE = 16000;
 const uint8_t SAMPLE_BITS = 16;
