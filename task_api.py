@@ -10,12 +10,14 @@ from assistant_vosk import TaskManager
 
 app = Flask(__name__)
 
-TASKS_PATH = Path("tasks.json")
+PROJECT_ROOT = Path(__file__).resolve().parent
+TASKS_PATH = PROJECT_ROOT / "tasks.json"
 task_manager = TaskManager(storage_path=TASKS_PATH)
 task_lock = Lock()
 
 
 def serialise_tasks():
+    task_manager.load_tasks()
     return [asdict(task) for task in task_manager.list_tasks()]
 
 

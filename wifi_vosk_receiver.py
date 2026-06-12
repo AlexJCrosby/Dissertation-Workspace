@@ -11,7 +11,8 @@ from asr.vosk_asr.vosk_integration import transcribe_wav_file
 HOST = "0.0.0.0"
 PORT = 5001
 OUTPUT_DIR = Path("received_audio")
-TASKS_PATH = Path("tasks.json")
+PROJECT_ROOT = Path(__file__).resolve().parent
+TASKS_PATH = PROJECT_ROOT / "tasks.json"
 
 
 def recv_exact(conn: socket.socket, num_bytes: int) -> bytes:
@@ -122,6 +123,7 @@ def process_received_wav(wav_path: Path, task_manager: TaskManager) -> None:
     if command.task_text:
         print(f"Task text: {command.task_text}")
 
+    task_manager.load_tasks()
     handle_command(command, task_manager)
 
 
